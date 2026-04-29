@@ -608,8 +608,39 @@ export class GameScene extends Scene {
 
     // Gun
     ctx.fillStyle = '#444';
-    ctx.fillRect(20, -32, 15, 6);
-    ctx.fillRect(22, -28, 4, 8);
+    switch(this.currentWeapon.id) {
+      case 'shotgun':
+        ctx.fillRect(18, -32, 22, 5); // Long barrel
+        ctx.fillStyle = '#632'; // wood pump
+        ctx.fillRect(25, -31, 8, 4);
+        ctx.fillStyle = '#444';
+        ctx.fillRect(20, -28, 4, 8); // grip
+        break;
+      case 'machinegun':
+        ctx.fillRect(15, -34, 25, 8); // bulky body
+        ctx.fillRect(35, -32, 10, 3); // barrel
+        ctx.fillRect(20, -26, 4, 8); // grip
+        ctx.fillRect(28, -26, 4, 12); // magazine
+        break;
+      case 'magnum':
+        ctx.fillStyle = '#ccc'; // silver
+        ctx.fillRect(18, -33, 18, 7); // heavy barrel
+        ctx.fillStyle = '#444';
+        ctx.fillRect(22, -26, 5, 8); // grip
+        break;
+      case 'rocket':
+        ctx.fillStyle = '#353'; // green tube
+        ctx.fillRect(5, -38, 35, 12); // main tube
+        ctx.fillStyle = '#222';
+        ctx.fillRect(38, -36, 8, 8); // warhead opening
+        ctx.fillRect(20, -26, 4, 8); // grip
+        break;
+      case 'handgun':
+      default:
+        ctx.fillRect(20, -32, 15, 6);
+        ctx.fillRect(22, -28, 4, 8);
+        break;
+    }
 
     // Muzzle flash glow on agent
     if (this.muzzleFlash.isActive()) {
