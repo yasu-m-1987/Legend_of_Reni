@@ -14,6 +14,7 @@ export class HUD {
     this.overlay = document.getElementById('hud-overlay');
     this.heartCanvas = document.getElementById('heart-canvas');
     this.heartCtx = this.heartCanvas ? this.heartCanvas.getContext('2d') : null;
+    this.weaponEl = document.getElementById('weapon-name');
     this.heartData = [];
     this.heartTime = 0;
     this.heartBPM = 72;
@@ -52,6 +53,13 @@ export class HUD {
     } else {
       this.comboEl.style.color = COLORS.TEXT_PRIMARY;
     }
+  }
+
+  updateWeapon(name, color) {
+    if (!this.weaponEl) return;
+    this.weaponEl.textContent = name;
+    this.weaponEl.style.color = color;
+    this.weaponEl.style.textShadow = `0 0 8px ${color}`;
   }
 
   updateWord(japanese, romaji, completedRomaji, currentPartial) {

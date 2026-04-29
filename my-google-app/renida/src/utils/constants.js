@@ -21,6 +21,7 @@ export const MODES = {
     creatureSpeedBase: 0.4,
     creatureSpeedMax: 0.8,
     dataFile: 'easy',
+    stage: 'mansion',
   },
   SOLDIER: {
     id: 'SOLDIER',
@@ -36,6 +37,7 @@ export const MODES = {
     creatureSpeedBase: 0.5,
     creatureSpeedMax: 1.0,
     dataFile: 'medium',
+    stage: 'village',
   },
   PROFESSIONAL: {
     id: 'PROFESSIONAL',
@@ -51,6 +53,8 @@ export const MODES = {
     creatureSpeedBase: 0.6,
     creatureSpeedMax: 1.2,
     dataFile: 'hard',
+    stage: 'lab',       // switches to 'castle' after mutation
+    stageMutation: 'castle',
   },
 };
 
@@ -212,3 +216,57 @@ export const CHARACTERS = {
 
 // Mutation event
 export const MUTATION_TIME_RATIO = 0.5;  // at 50% time remaining
+
+// Weapons (score-based progression)
+export const WEAPONS = [
+  {
+    id: 'handgun',
+    name: 'HANDGUN',
+    nameJp: 'ハンドガン',
+    scoreThreshold: 0,
+    color: '#ffcc00',
+    flashSize: 1.0,
+    shakeIntensity: 3,
+    soundMethod: 'playHandgun',
+  },
+  {
+    id: 'shotgun',
+    name: 'SHOTGUN',
+    nameJp: 'ショットガン',
+    scoreThreshold: 1000,
+    color: '#ff8800',
+    flashSize: 1.6,
+    shakeIntensity: 5,
+    soundMethod: 'playShotgun',
+  },
+  {
+    id: 'machinegun',
+    name: 'MACHINE GUN',
+    nameJp: 'マシンガン',
+    scoreThreshold: 3000,
+    color: '#ffdd44',
+    flashSize: 1.2,
+    shakeIntensity: 2,
+    soundMethod: 'playMachineGun',
+  },
+  {
+    id: 'magnum',
+    name: 'MAGNUM',
+    nameJp: 'マグナム',
+    scoreThreshold: 6000,
+    color: '#ff4444',
+    flashSize: 2.0,
+    shakeIntensity: 8,
+    soundMethod: 'playMagnum',
+  },
+  {
+    id: 'rocket',
+    name: 'ROCKET LAUNCHER',
+    nameJp: 'ロケットランチャー',
+    scoreThreshold: 10000,
+    color: '#ff2200',
+    flashSize: 3.0,
+    shakeIntensity: 12,
+    soundMethod: 'playRocketLauncher',
+  },
+];

@@ -3,7 +3,7 @@
 // ========================================
 import { Scene } from '../core/Game.js';
 import {
-  GAME_WIDTH, GAME_HEIGHT, COLORS, CHARACTERS,
+  GAME_WIDTH, GAME_HEIGHT, COLORS, CHARACTERS, WEAPONS,
   CREATURE_TYPES, CREATURE_ARRIVE_X,
   CREATURE_SPAWN_X_MIN, CREATURE_SPAWN_X_MAX,
   CREATURE_Y_MIN, CREATURE_Y_MAX,
@@ -19,6 +19,7 @@ import { Lightning } from '../effects/Lightning.js';
 import { NeonGlow } from '../effects/NeonGlow.js';
 import { MuzzleFlash } from '../effects/MuzzleFlash.js';
 import { ScreenShake } from '../effects/ScreenShake.js';
+import { createStageBackground } from '../effects/StageBackground.js';
 import { HUD } from '../ui/HUD.js';
 
 export class GameScene extends Scene {
@@ -64,6 +65,11 @@ export class GameScene extends Scene {
     this.neon = new NeonGlow(GAME_WIDTH, GAME_HEIGHT);
     this.muzzleFlash = new MuzzleFlash();
     this.screenShake = new ScreenShake();
+    this.stageBg = createStageBackground(this.mode.stage);
+
+    // Weapon
+    this.currentWeaponIndex = 0;
+    this.currentWeapon = WEAPONS[0];
 
     // Agent muzzle position (bottom right)
     this.agentX = 130;
@@ -81,6 +87,7 @@ export class GameScene extends Scene {
     this.hud.updateScore(this.score, this.mode.cost);
     this.hud.updateCombo(this.combo);
     this.hud.updateWord('', '', '', '');
+    this.hud.updateWeapon(this.currentWeapon.name, this.currentWeapon.color);
 
     // Input
     this._keyUnsub = this.game.input.onKey((e) => this._handleKey(e));
@@ -194,8 +201,9 @@ export class GameScene extends Scene {
       this.totalHits++;
       this.combo++;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-      this.game.audio.playGunshot();
+      this._playWeaponSound();
       this.muzzleFlash.trigger(this.agentX + 20, this.agentY - 30);
+      this.screenShake.trigger(this.currentWeapon.shakeIntensity * 0.3, 0.08);
       this.currentTarget.onHit();
 
       // Combo bonus
@@ -223,12 +231,14 @@ export class GameScene extends Scene {
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
       this.kills++;
       this.score += this.currentTarget.bounty;
-      this.game.audio.playGunshot();
+      this._playWeaponSound();
       this.game.audio.playKill();
       this.muzzleFlash.trigger(this.agentX + 20, this.agentY - 30);
+      this.screenShake.trigger(this.currentWeapon.shakeIntensity * 0.5, 0.1);
       this.currentTarget.kill();
       this.hud.showFeedback(`KILL +$${this.currentTarget.bounty}`, 'kill');
       this.hud.updateScore(this.score, this.mode.cost);
+      this._checkWeaponUpgrade();
 
       // Kill time bonus (MOCHI ability)
       if (this.killTimeBonus > 0) {
@@ -301,6 +311,10 @@ export class GameScene extends Scene {
       this.hud.flashScreen('rgba(170, 58, 255, 0.3)');
       this.screenShake.trigger(10, 0.5);
       this.lightning.trigger();
+      // Stage switch on mutation (e.g., lab → castle)
+      if (this.mode.stageMutation) {
+        this.stageBg = createStageBackground(this.mode.stageMutation);
+      }
     }
 
     // Spawn logic
@@ -355,6 +369,7 @@ export class GameScene extends Scene {
     this.neon.update(dt);
     this.muzzleFlash.update(dt);
     this.screenShake.update(dt);
+    this.stageBg.update(dt);
 
     // HUD updates
     this.hud.updateTimer(this.timeRemaining, this.totalTime);
@@ -387,27 +402,8 @@ export class GameScene extends Scene {
     ctx.save();
     this.screenShake.apply(ctx);
 
-    // Background - dark alley
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-    bgGrad.addColorStop(0, '#030310');
-    bgGrad.addColorStop(0.6, '#080818');
-    bgGrad.addColorStop(1, '#0a0515');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, W, H);
-
-    // Ground/road
-    ctx.fillStyle = '#0c0a12';
-    ctx.fillRect(0, H * 0.82, W, H * 0.18);
-
-    // Road line
-    ctx.strokeStyle = 'rgba(80, 70, 100, 0.15)';
-    ctx.setLineDash([20, 15]);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, H * 0.88);
-    ctx.lineTo(W, H * 0.88);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // Stage background
+    this.stageBg.render(ctx);
 
     // Neon glow
     this.neon.render(ctx);
@@ -434,7 +430,7 @@ export class GameScene extends Scene {
     // Lightning
     this.lightning.render(ctx);
 
-    // Agent Nora silhouette (bottom right area)
+    // Agent
     this._renderAgent(ctx);
 
     // Muzzle flash
@@ -630,6 +626,32 @@ export class GameScene extends Scene {
     ctx.fillText(ch.name, 0, 55);
 
     ctx.restore();
+  }
+
+  _playWeaponSound() {
+    const method = this.currentWeapon.soundMethod;
+    if (this.game.audio[method]) {
+      this.game.audio[method]();
+    } else {
+      this.game.audio.playGunshot();
+    }
+  }
+
+  _checkWeaponUpgrade() {
+    for (let i = WEAPONS.length - 1; i >= 0; i--) {
+      if (this.score >= WEAPONS[i].scoreThreshold) {
+        if (i > this.currentWeaponIndex) {
+          this.currentWeaponIndex = i;
+          this.currentWeapon = WEAPONS[i];
+          this.game.audio.playWeaponUpgrade();
+          this.hud.updateWeapon(this.currentWeapon.name, this.currentWeapon.color);
+          this.hud.showFeedback(`🔫 ${this.currentWeapon.nameJp} GET!`, 'bonus');
+          this.hud.flashScreen(`rgba(255, 200, 0, 0.25)`);
+          this.screenShake.trigger(6, 0.3);
+        }
+        break;
+      }
+    }
   }
 
   _hexToRgb(hex) {

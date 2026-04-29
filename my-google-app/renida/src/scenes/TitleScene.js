@@ -6,6 +6,7 @@ import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../utils/constants.js';
 import { Rain } from '../effects/Rain.js';
 import { Lightning } from '../effects/Lightning.js';
 import { NeonGlow } from '../effects/NeonGlow.js';
+import { VolumeControl } from '../ui/VolumeControl.js';
 
 export class TitleScene extends Scene {
   constructor() {
@@ -18,6 +19,7 @@ export class TitleScene extends Scene {
     this.glitchActive = false;
     this.promptAlpha = 0;
     this.promptDir = 1;
+    this.volumeControl = new VolumeControl();
   }
 
   async enter() {
@@ -32,6 +34,14 @@ export class TitleScene extends Scene {
     hud.style.display = 'none';
 
     this._keyUnsub = this.game.input.onKey((e) => {
+      if (e.key === 'm' || e.key === 'M') {
+        this.volumeControl.toggle();
+        return;
+      }
+      if (this.volumeControl.isVisible()) {
+        this.volumeControl.handleKey(e, this.game.audio);
+        return;
+      }
       this.game.audio.playMenuSelect();
       this.game.switchScene('modeSelect');
     });
@@ -145,7 +155,14 @@ export class TitleScene extends Scene {
     ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
     ctx.fillText('v1.0 // AGENT NORA DEPLOYMENT', W / 2, H * 0.95);
 
+    // Sound hint
+    ctx.fillStyle = 'rgba(100,100,100,0.35)';
+    ctx.fillText('[M] SOUND SETTINGS', W / 2, H * 0.88);
+
     ctx.restore();
+
+    // Volume overlay
+    this.volumeControl.render(ctx, this.game.audio);
   }
 
   _drawBiohazardSymbol(ctx, cx, cy, size) {
