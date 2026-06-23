@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>れにの伝説 (Legend of Reni) - 2D Action Adventure</title>
+  <script>
+    // 静的コンソールにログ/エラーを出力するヘルパー
+    function showDebugError(msg, color = '#ff3333') {
+      const textSpan = document.getElementById('debug-error-text');
+      if (textSpan) {
+        textSpan.innerHTML += '<div style="color: ' + color + ';">' + msg + '</div>';
+        const consoleDiv = document.getElementById('debug-error-console');
+        if (consoleDiv) {
+          consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+      } else {
+        console.error(msg);
+      }
+    }
+
+    window.addEventListener('error', function(e) {
+      showDebugError('[ERROR] ' + e.message + ' at ' + e.filename + ':' + e.lineno + ':' + e.colno, '#ff3333');
+      const consoleDiv = document.getElementById('debug-error-console');
+      if (consoleDiv) consoleDiv.style.borderColor = '#ef4444';
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      showDebugError('[REJECTION] Promise rejected: ' + (e.reason ? (e.reason.message || e.reason) : e), '#ff3333');
+      const consoleDiv = document.getElementById('debug-error-console');
+      if (consoleDiv) consoleDiv.style.borderColor = '#ef4444';
+    });
+  </script>
+  <!-- Google Fonts for Retro gaming feel and premium look -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- Phaser 3 Game Engine (Local copy to prevent CORS and network errors) -->
+  <script src="phaser.min.js"></script>
+</head>
+<body>
+  <div id="app-container">
+    <!-- 静的デバッグコンソール領域 -->
+    <div id="debug-error-console" style="background-color: #1a1a24; border: 2px solid #3b82f6; color: #fff; padding: 12px; font-family: monospace; font-size: 13px; margin-bottom: 16px; border-radius: 8px; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 9999;">
+      <div style="font-weight: bold; color: #ffd700; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 6px;">[SYSTEM DEBUG CONSOLE]</div>
+      <div id="debug-error-text" style="line-height: 1.5;"><div style="color: #4caf50;">[SYSTEM] 起動シーケンス開始...</div></div>
+    </div>
+
+    <header class="game-header">
+      <h1 class="game-title">れにの伝説</h1>
+      <p class="game-subtitle">Legend of Reni: A Link to the Past</p>
+    </header>
+
+    <main class="game-main">
+      <!-- Left side: Game Canvas -->
+      <div class="console-wrapper">
+        <div class="screen-bezel">
+          <div class="screen-glare"></div>
+          <div id="game-container"></div>
+          
+          <!-- Splash / Start Screen overlay inside canvas container if needed -->
+          <div id="start-overlay" class="overlay-screen">
+            <div class="overlay-content">
+              <h2 class="blink">PRESS ENTER TO START</h2>
+              <p class="tabby-intro">キジトラ猫の「れに」を操作して、光と闇の世界を冒険しよう！</p>
+            </div>
+          </div>
+          
+          <!-- Game Over overlay -->
+          <div id="gameover-overlay" class="overlay-screen hidden">
+            <div class="overlay-content error-theme">
+              <h2>GAME OVER</h2>
+              <p>れには力尽きてしまった...</p>
+              <button id="retry-btn" class="retro-btn">もう一度挑戦</button>
+            </div>
+          </div>
+
+          <!-- Game Clear overlay -->
+          <div id="clear-overlay" class="overlay-screen hidden">
+            <div class="overlay-content gold-theme">
+              <h2>GAME CLEAR!</h2>
+              <p>トライフォースの光を取り戻し、世界に平和が戻った！</p>
+              <button id="restart-btn" class="retro-btn">タイトルに戻る</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right side: Control & Status Panel -->
+      <aside class="sidebar-panel">
+        <!-- Status Box -->
+        <div class="panel-section status-box">
+          <h3 class="section-title">ステータス</h3>
+          <div class="status-row">
+            <span class="label">なまえ:</span>
+            <span class="value name-val">れに (キジトラ)</span>
+          </div>
+          <div class="status-row">
+            <span class="label">せかい:</span>
+            <span id="world-status" class="value world-val light-world">光の世界</span>
+          </div>
+          <div class="status-row">
+            <span class="label">ムーンパール:</span>
+            <span id="pearl-status" class="value status-off">未所持</span>
+          </div>
+          <div class="status-resource-row">
+            <span class="label">まほう:</span>
+            <div class="magic-bar-container">
+              <div id="magic-bar" class="magic-bar-fill" style="width: 100%;"></div>
+            </div>
+          </div>
+          <div class="status-row">
+            <span class="label">のこり矢:</span>
+            <span id="arrow-count" class="value item-val">10</span>
+          </div>
+        </div>
+
+        <!-- Item Slots Box -->
+        <div class="panel-section items-box">
+          <h3 class="section-title">そうびスロット</h3>
+          <div class="item-slots">
+            <div id="slot-1" class="item-slot active">
+              <span class="slot-num">1</span>
+              <div class="slot-icon-container" id="slot-icon-1"></div>
+              <span class="slot-name">つるぎ</span>
+            </div>
+            <div id="slot-2" class="item-slot locked">
+              <span class="slot-num">2</span>
+              <div class="slot-icon-container" id="slot-icon-2"></div>
+              <span class="slot-name">ファイア(未)</span>
+            </div>
+            <div id="slot-3" class="item-slot locked">
+              <span class="slot-num">3</span>
+              <div class="slot-icon-container" id="slot-icon-3"></div>
+              <span class="slot-name">弓矢(未)</span>
+            </div>
+            <div id="slot-4" class="item-slot">
+              <span class="slot-num">4</span>
+              <div class="slot-icon-container" id="slot-icon-4"></div>
+              <span class="slot-name">ミラー</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls Box -->
+        <div class="panel-section controls-box">
+          <h3 class="section-title">そうさほうほう</h3>
+          <ul class="control-list">
+            <li><span class="key">▲ ▼ ◀ ▶</span> / <span class="key">W A S D</span> : 移動</li>
+            <li><span class="key">Space</span> / <span class="key">J</span> : 選択アイテムを使用</li>
+            <li><span class="key">1</span> <span class="key">2</span> <span class="key">3</span> <span class="key">4</span> : そうび切り替え</li>
+            <li><span class="key">Enter</span> : ゲーム開始 / リトライ</li>
+          </ul>
+        </div>
+
+        <!-- Instructions/Lore Box -->
+        <div class="panel-section lore-box">
+          <h3 class="section-title">ものがたり</h3>
+          <p class="lore-text">
+            邪悪な魔術師アグニムにより、ハイラルは闇に包まれようとしていた。
+            その時、テレパシーを受け取ったのは、一匹の勇敢なキジトラ猫「れに」。
+            「れに」は光の世界と闇の世界を往来し、伝説の「ムーンパール」と「マスターソード」を手に入れ、魔王ガノンを討つことができるのか！？
+          </p>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="game-footer">
+      <p>&copy; 2026 れにの伝説 製作委員会 / Powered by Antigravity</p>
+    </footer>
+  </div>
+
+  <script src="game.js" defer></script>
+</body>
+</html>
