@@ -1,0 +1,7 @@
+# macOS
+.DS_Store
+
+# 別プロジェクトの置き場（実体は ~/dev へ移動済み。ゲームとは無関係。
+# iCloudの競合複製 "... 2"/"... 3" もここで無視）
+my-claude-app/
+my-google-app/
