@@ -13,7 +13,6 @@ import { Ganon } from '../entities/enemies/Ganon.js';
 
 /**
  * メインゲームシーン (PlayScene)
- * ゼルダの伝説 神々のトライフォースのゲームプレイと演出を司る
  */
 export class PlayScene extends Phaser.Scene {
   constructor() {
@@ -25,6 +24,15 @@ export class PlayScene extends Phaser.Scene {
     audioSynth.startBGM(gameState.currentWorld);
 
     this.physics.world.setBounds(0, 0, MAP_COLS * TILE_SIZE, MAP_ROWS * TILE_SIZE);
+
+    // スペースキーのブラウザスクロールを無効化
+    this.input.keyboard.addCapture([
+      Phaser.Input.Keyboard.KeyCodes.SPACE,
+      Phaser.Input.Keyboard.KeyCodes.UP,
+      Phaser.Input.Keyboard.KeyCodes.DOWN,
+      Phaser.Input.Keyboard.KeyCodes.LEFT,
+      Phaser.Input.Keyboard.KeyCodes.RIGHT
+    ]);
 
     // 物理静的グループ
     this.walls = this.physics.add.staticGroup();
@@ -43,7 +51,7 @@ export class PlayScene extends Phaser.Scene {
     // マップ構築
     mapManager.buildMapPhysics(this, gameState.currentWorld);
 
-    // プレイヤー生成
+    // プレイヤー生成（デフォルト位置）
     this.player = new Player(this, 10 * TILE_SIZE, 15 * TILE_SIZE);
 
     // カメラ設定
@@ -52,9 +60,10 @@ export class PlayScene extends Phaser.Scene {
 
     // コライダー設定
     this.physics.add.collider(this.player, this.walls);
-    this.physics.add.collider(this.player, this.chests);
-    this.physics.add.collider(this.player, this.pedestals);
+    this.physics.add.collider(this.player, this.chests, (p, chest) => this.openChest(chest));
+    this.physics.add.collider(this.player, this.pedestals, (p, ped) => this.drawMasterSword(ped));
     this.physics.add.collider(this.player, this.iceBlocks);
+    this.physics.add.collider(this.player, this.bushes);
     this.physics.add.collider(this.player, this.pyramids);
     this.physics.add.collider(this.enemies, this.walls);
 
@@ -63,10 +72,6 @@ export class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(this.projectiles, this.enemies, this.hitEnemyWithProjectile, null, this);
     this.physics.add.overlap(this.player, this.enemies, this.hitPlayerByEnemy, null, this);
     this.physics.add.overlap(this.player, this.projectiles, this.hitPlayerByProjectile, null, this);
-
-    // 宝箱・台座・ポータルのインタラクション
-    this.physics.add.collider(this.player, this.chests, (p, chest) => this.openChest(chest));
-    this.physics.add.collider(this.player, this.pedestals, (p, ped) => this.drawMasterSword(ped));
     this.physics.add.overlap(this.player, this.portals, (p, portal) => this.enterPortal(portal));
 
     // 敵スポーン
@@ -81,12 +86,12 @@ export class PlayScene extends Phaser.Scene {
     // 画面中央通知バナー
     this.splashText = this.add.text(400, 240, '', {
       fontFamily: '"DotGothic16", sans-serif',
-      fontSize: '24px',
+      fontSize: '22px',
       color: '#ffd700',
       stroke: '#000000',
       strokeThickness: 6,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      padding: { x: 12, y: 8 }
+      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+      padding: { x: 14, y: 10 }
     }).setOrigin(0.5).setScrollFactor(0).setDepth(100).setVisible(false);
 
     uiManager.update();
@@ -97,7 +102,7 @@ export class PlayScene extends Phaser.Scene {
       this.player.update(time, delta);
     }
 
-    // アイテム（2, 3, 4）の使用キー判定（スペース/Jキーで剣以外のアイテムを使う場合）
+    // アイテム（2, 3, 4）の使用キー判定（剣以外のアイテムを使用時）
     if (this.player && !this.player.isHolding && !this.player.isAttacking) {
       if (Phaser.Input.Keyboard.JustDown(this.player.spaceKey) || Phaser.Input.Keyboard.JustDown(this.player.jKey)) {
         if (gameState.selectedItem !== ITEMS.SWORD) {
@@ -110,7 +115,6 @@ export class PlayScene extends Phaser.Scene {
     this.checkAreaTransition();
   }
 
-  // 装備中アイテム（ファイアロッド、弓矢、マジカルミラー）の使用
   useActiveItem() {
     const isBunny = (gameState.currentWorld === WORLDS.DARK && !gameState.hasMoonPearl);
     if (isBunny) return;
@@ -134,7 +138,6 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  // 飛び道具発射
   firePlayerProjectile(type) {
     let dx = 0;
     let dy = 0;
@@ -150,13 +153,11 @@ export class PlayScene extends Phaser.Scene {
     new Projectile(this, sx, sy, type, dx, dy, type, 'player');
   }
 
-  // マジカルミラー（神トラの表裏ワープ）
   useMirror() {
     if (gameState.currentWorld === WORLDS.DARK) {
       audioSynth.playWarp();
       this.cameras.main.flash(400, 255, 255, 255);
 
-      // 光の世界の同座標に復帰用ポータルを設置
       const px = Math.floor(this.player.x / TILE_SIZE);
       const py = Math.floor(this.player.y / TILE_SIZE);
       if (mapManager.maps[WORLDS.LIGHT][py][px] === 0) {
@@ -172,19 +173,32 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  // ポータル侵入
   enterPortal(portal) {
+    if (this.isWarping) return;
+    this.isWarping = true;
+
+    audioSynth.playWarp();
+    this.cameras.main.flash(400, 255, 255, 255);
+
     if (gameState.currentWorld === WORLDS.LIGHT) {
-      audioSynth.playWarp();
-      this.cameras.main.flash(400, 255, 255, 255);
       gameState.currentWorld = WORLDS.DARK;
-      this.rebuildScene();
+      this.player.x += 32; // ポータルからずらす
       this.showBanner("闇の世界へ引きずり込まれた！");
+    } else if (gameState.currentWorld === WORLDS.DARK) {
+      gameState.currentWorld = WORLDS.LIGHT;
+      this.player.x += 32;
+      this.showBanner("光の世界へ戻った！");
     }
+
+    this.rebuildScene();
+
+    this.time.delayedCall(800, () => {
+      this.isWarping = false;
+    });
   }
 
-  // 宝箱を開ける（神トラ風アイテム掲げ演出）
   openChest(chest) {
+    if (!chest || !chest.active) return;
     const type = chest.chestType;
     const cid = chest.chestId;
     if (gameState.openedChests.has(cid)) return;
@@ -213,13 +227,12 @@ export class PlayScene extends Phaser.Scene {
     uiManager.update();
   }
 
-  // マスターソードを抜く演出
   drawMasterSword(ped) {
-    if (gameState.hasMasterSword) return;
+    if (!ped || !ped.active || gameState.hasMasterSword) return;
 
     ped.destroy();
     gameState.hasMasterSword = true;
-    gameState.playerHealth = gameState.playerMaxHealth; // 全回復！
+    gameState.playerHealth = gameState.playerMaxHealth;
 
     this.player.holdItem('item-sword-master', () => {
       this.showBanner("伝説の退魔の剣『マスターソード』を引き抜いた！");
@@ -228,7 +241,6 @@ export class PlayScene extends Phaser.Scene {
     uiManager.update();
   }
 
-  // ドロップアイテム回収
   collectDrop(player, drop) {
     if (!drop.active) return;
 
@@ -247,16 +259,14 @@ export class PlayScene extends Phaser.Scene {
     uiManager.update();
   }
 
-  // プレイヤーが敵に接触
   hitPlayerByEnemy(player, enemy) {
-    if (player.invulnerable || !enemy.active) return;
+    if (player.invulnerable || !enemy.active || player.isHolding) return;
 
     player.invulnerable = true;
     audioSynth.playHurt();
 
     const isDead = gameState.takeDamage(1);
 
-    // プレイヤーが赤く点滅＆ノックバック
     player.setTint(0xff3333);
     const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
     player.body.setVelocity(Math.cos(angle) * 220, Math.sin(angle) * 220);
@@ -273,11 +283,20 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  // プレイヤーが敵弾に接触（盾ガード判定）
   hitPlayerByProjectile(player, proj) {
     if (!proj.active || proj.owner === 'player') return;
 
-    // 神トラ名物：正面からの飛び道具は盾で「カンッ！」と弾く
+    // 剣攻撃中（振り終わりまでの間）に魔法弾が接触した場合は打ち返し！
+    if (player.isAttacking && proj.canReflect) {
+      const agahnim = this.enemies.getChildren().find(e => e.type === 'agahnim' && e.active);
+      const tx = agahnim ? agahnim.x : player.x;
+      const ty = agahnim ? agahnim.y : player.y - 200;
+      proj.reflect(tx, ty);
+      this.showBanner("魔法弾を跳ね返した！");
+      return;
+    }
+
+    // 盾オートガード判定
     if (player.canBlockProjectile(proj)) {
       audioSynth.playShieldBlock();
       this.createSpark(proj.x, proj.y, 0xffeb3b);
@@ -290,7 +309,6 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
 
-    // ガードできなかった場合はダメージ
     player.invulnerable = true;
     audioSynth.playHurt();
     const isDead = gameState.takeDamage(1);
@@ -309,54 +327,54 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  // 敵にプロジェクタイルが命中
   hitEnemyWithProjectile(proj, enemy) {
     if (!proj.active || !enemy.active || proj.owner !== 'player') return;
 
     let damage = 1;
     if (proj.type === 'fireball') damage = 2;
     if (proj.type === 'beam') damage = 2;
-    if (proj.isReflected) damage = 1; // アグニムへの打ち返し弾
 
     const isReflected = proj.isReflected;
     proj.destroy();
 
     this.createSpark(enemy.x, enemy.y, 0xffaa00);
-
     const isDead = enemy.takeDamage(damage, 0, 0, isReflected);
 
-    // ボス撃破時の特別処理
     if (isDead) {
-      if (enemy.type === 'agahnim') {
-        gameState.bossDefeated = true;
-        mapManager.maps[WORLDS.LIGHT][6][4] = 0; // 結界解除
-        mapManager.buildMapPhysics(this, gameState.currentWorld);
-        audioSynth.playFanfare();
-        this.showBanner("アグニムを倒した！森の結界が消滅！");
-      } else if (enemy.type === 'lanmola') {
-        mapManager.maps[WORLDS.DESERT][5][20] = 6; // ファイアロッド宝箱
-        mapManager.buildMapPhysics(this, gameState.currentWorld);
-        audioSynth.playFanfare();
-        this.showBanner("デグサードを倒した！宝箱が出現！");
-      } else if (enemy.type === 'moldorm') {
-        mapManager.maps[WORLDS.LOST_WOODS][3][20] = 5; // マスターソード台座
-        mapManager.buildMapPhysics(this, gameState.currentWorld);
-        audioSynth.playFanfare();
-        this.showBanner("デグテールを倒した！台座が出現！");
-      } else if (enemy.type === 'ganon') {
-        gameState.finalBossDefeated = true;
-        this.scene.start('ClearScene');
-      }
+      this.onEnemyDefeated(enemy);
     }
   }
 
-  // ダンジョン出入り判定
+  // 敵撃破イベント一元化（剣・回転斬り・矢・魔法共通）
+  onEnemyDefeated(enemy) {
+    if (enemy.type === 'agahnim') {
+      gameState.bossDefeated = true;
+      mapManager.maps[WORLDS.LIGHT][6][4] = 0; // 結界解除
+      mapManager.buildMapPhysics(this, gameState.currentWorld);
+      audioSynth.playFanfare();
+      this.showBanner("アグニムを倒した！森の結界が消滅！");
+    } else if (enemy.type === 'lanmola') {
+      mapManager.maps[WORLDS.DESERT][5][20] = 6; // ファイアロッド宝箱出現
+      mapManager.buildMapPhysics(this, gameState.currentWorld);
+      audioSynth.playFanfare();
+      this.showBanner("デグサードを倒した！宝箱が出現！");
+    } else if (enemy.type === 'moldorm') {
+      mapManager.maps[WORLDS.LOST_WOODS][3][20] = 5; // マスターソード台座出現
+      mapManager.buildMapPhysics(this, gameState.currentWorld);
+      audioSynth.playFanfare();
+      this.showBanner("デグテールを倒した！台座が出現！");
+    } else if (enemy.type === 'ganon') {
+      gameState.finalBossDefeated = true;
+      this.scene.start('ClearScene');
+    }
+  }
+
   checkAreaTransition() {
     const px = Math.floor(this.player.x / TILE_SIZE);
     const py = Math.floor(this.player.y / TILE_SIZE);
     const isDungeon = [WORLDS.DESERT, WORLDS.DARK_TEMPLE, WORLDS.LOST_WOODS, WORLDS.PYRAMID].includes(gameState.currentWorld);
 
-    // 1. ダンジョンからの脱出
+    // ダンジョン南端からの脱出
     if (isDungeon && py === 29) {
       audioSynth.playWarp();
       this.cameras.main.flash(400, 255, 255, 255);
@@ -379,23 +397,17 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
 
-    // 2. 通常世界からダンジョンへ
+    // 通常世界からダンジョンへ
     if (gameState.currentWorld === WORLDS.LIGHT) {
-      // 砂漠の神殿 (c=6, r=24)
       if (py === 24 && px === 6) {
         this.warpToDungeon(WORLDS.DESERT, 20 * TILE_SIZE + 16, 28 * TILE_SIZE + 16);
-      }
-      // 迷いの森 (c=4, r=6 & アグニム撃破後)
-      else if (py === 6 && px === 4 && gameState.bossDefeated) {
+      } else if (py === 6 && px === 4 && gameState.bossDefeated) {
         this.warpToDungeon(WORLDS.LOST_WOODS, 20 * TILE_SIZE + 16, 28 * TILE_SIZE + 16);
       }
     } else if (gameState.currentWorld === WORLDS.DARK) {
-      // 闇の神殿 (c=4, r=6)
       if (py === 6 && px === 4) {
         this.warpToDungeon(WORLDS.DARK_TEMPLE, 20 * TILE_SIZE + 16, 28 * TILE_SIZE + 16);
-      }
-      // ピラミッド (c=18, r=14)
-      else if (py === 14 && px === 18) {
+      } else if (py === 14 && px === 18) {
         this.warpToDungeon(WORLDS.PYRAMID, 20 * TILE_SIZE + 16, 28 * TILE_SIZE + 16);
       }
     }
@@ -409,7 +421,6 @@ export class PlayScene extends Phaser.Scene {
     this.rebuildScene();
   }
 
-  // シーン再構築（世界移動時）
   rebuildScene() {
     audioSynth.startBGM(gameState.currentWorld);
     mapManager.buildMapPhysics(this, gameState.currentWorld);
@@ -417,7 +428,7 @@ export class PlayScene extends Phaser.Scene {
     uiManager.update();
   }
 
-  // 敵の配置
+  // 敵の配置（撃破済みのボスは再出現させない）
   spawnEntities() {
     this.enemies.clear(true, true);
     this.projectiles.clear(true, true);
@@ -434,17 +445,24 @@ export class PlayScene extends Phaser.Scene {
       new Octorok(this, 25 * TILE_SIZE, 22 * TILE_SIZE);
       new Octorok(this, 8 * TILE_SIZE, 18 * TILE_SIZE);
     } else if (world === WORLDS.DESERT) {
-      new Lanmola(this, 20 * TILE_SIZE, 5 * TILE_SIZE);
+      if (!gameState.hasFireRod) {
+        new Lanmola(this, 20 * TILE_SIZE, 5 * TILE_SIZE);
+      }
     } else if (world === WORLDS.DARK_TEMPLE) {
-      new Agahnim(this, 20 * TILE_SIZE, 4 * TILE_SIZE);
+      if (!gameState.bossDefeated) {
+        new Agahnim(this, 20 * TILE_SIZE, 4 * TILE_SIZE);
+      }
     } else if (world === WORLDS.LOST_WOODS) {
-      new Moldorm(this, 20 * TILE_SIZE, 4 * TILE_SIZE);
+      if (!gameState.hasMasterSword) {
+        new Moldorm(this, 20 * TILE_SIZE, 4 * TILE_SIZE);
+      }
     } else if (world === WORLDS.PYRAMID) {
-      new Ganon(this, 20 * TILE_SIZE, 4 * TILE_SIZE);
+      if (!gameState.finalBossDefeated) {
+        new Ganon(this, 20 * TILE_SIZE, 4 * TILE_SIZE);
+      }
     }
   }
 
-  // 画面中央通知メッセージ
   showBanner(message) {
     if (!this.splashText) return;
     this.splashText.setText(message);
@@ -461,7 +479,6 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  // 火花パーティクル
   createSpark(x, y, color = 0xffd700) {
     for (let i = 0; i < 6; i++) {
       const p = this.add.circle(x, y, 3, color).setDepth(30);
@@ -478,7 +495,6 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  // 敵撃破時の煙爆散パーティクル
   createExplosion(x, y) {
     for (let i = 0; i < 10; i++) {
       const p = this.add.circle(x, y, 5, 0xffffff).setDepth(30);
@@ -496,7 +512,6 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  // 草刈り時の葉っぱ飛散パーティクル
   createLeafBurst(x, y) {
     for (let i = 0; i < 8; i++) {
       const leaf = this.add.circle(x, y, 3, 0x4cc76e).setDepth(30);

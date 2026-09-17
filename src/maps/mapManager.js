@@ -282,13 +282,19 @@ class MapManager {
     }
   }
 
-  // 刈れる草むらの生成
+  // 刈れる草むらの生成（通路やスポーン地点を避ける）
   spawnBushes(scene, world) {
     const mapGrid = this.maps[world];
+    const pathRows = [4, 6, 15, 24];
+    const pathCols = [4, 6, 10, 20, 30, 34];
+
     for (let r = 2; r < MAP_ROWS - 2; r++) {
       for (let c = 2; c < MAP_COLS - 2; c++) {
-        // 空白タイルにランダム配置（歩道を避ける）
-        if (mapGrid[r][c] === 0 && Math.random() < 0.09) {
+        // 通路やスポーン地点は除外
+        if (pathRows.includes(r) || pathCols.includes(c)) continue;
+        if (r >= 12 && r <= 18 && c >= 7 && c <= 13) continue;
+
+        if (mapGrid[r][c] === 0 && Math.random() < 0.12) {
           const x = c * TILE_SIZE + 16;
           const y = r * TILE_SIZE + 16;
           const bush = scene.bushes.create(x, y, 'cut-bush');

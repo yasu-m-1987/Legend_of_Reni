@@ -42,6 +42,26 @@ export class UIManager {
     const pearlLabel = document.getElementById('pearl-status');
     const magicBar = document.getElementById('magic-bar');
     const arrowCount = document.getElementById('arrow-count');
+    const heartsContainer = document.getElementById('hearts-container');
+
+    // ライフ（ハート）表示
+    if (heartsContainer) {
+      let heartsText = '';
+      const totalHearts = Math.ceil(gameState.playerMaxHealth / 2);
+      let hp = gameState.playerHealth;
+      for (let i = 0; i < totalHearts; i++) {
+        if (hp >= 2) {
+          heartsText += '❤️';
+          hp -= 2;
+        } else if (hp === 1) {
+          heartsText += '💔';
+          hp -= 1;
+        } else {
+          heartsText += '🖤';
+        }
+      }
+      heartsContainer.textContent = heartsText;
+    }
 
     // オーバーレイ
     if (startScreen) startScreen.classList.toggle('hidden', currentGameState !== STATES.TITLE);

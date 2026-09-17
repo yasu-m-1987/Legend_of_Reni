@@ -6,7 +6,7 @@ import { DropItem } from './DropItem.js';
 
 /**
  * プレイヤー（れに）クラス
- * 移動、通常剣撃、回転斬り（溜め攻撃）、盾オートガード、アイテム掲げ演出を統合
+ * 即時剣攻撃、長押しチャージ回転斬り、盾オートガード、アイテム掲げ演出
  */
 export class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) {
@@ -28,7 +28,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // 回転斬り（Spin Attack）用チャージ状態
     this.isCharging = false;
     this.chargeTime = 0;
-    this.chargeThreshold = 550; // チャージに必要な時間 (ms)
+    this.chargeThreshold = 500; // チャージに必要な時間 (ms)
     this.chargeSoundTimer = 0;
 
     // チャージエフェクト（刀身のきらめき）
@@ -101,7 +101,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.cursors.up.isDown || this.wasd.W.isDown) vy -= this.speed;
     if (this.cursors.down.isDown || this.wasd.S.isDown) vy += this.speed;
 
-    // 斜め移動の速度正規化
     if (vx !== 0 && vy !== 0) {
       vx *= 0.7071;
       vy *= 0.7071;
@@ -136,49 +135,47 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  // 攻撃ボタンの長押し（溜め）と解放（通常斬り/回転斬り）
+  // 攻撃ボタンの操作処理（押した瞬間に通常斬り、長押しでチャージ、離して回転斬り！）
   handleAttackCharge(delta) {
     const isBunny = (gameState.currentWorld === WORLDS.DARK && !gameState.hasMoonPearl);
-    if (isBunny) return; // ウサギ時は攻撃不可
+    if (isBunny) return;
 
-    const attackKeyDown = (this.spaceKey.isDown || this.jKey.isDown);
+    // 剣を選択している時のみチャージ攻撃可能
+    if (gameState.selectedItem !== ITEMS.SWORD) return;
 
-    if (attackKeyDown) {
-      if (gameState.selectedItem === ITEMS.SWORD) {
-        if (!this.isCharging && !this.isAttacking) {
-          this.isCharging = true;
-          this.chargeTime = 0;
+    const justPressed = (Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.jKey));
+    const isDown = (this.spaceKey.isDown || this.jKey.isDown);
+
+    // 1. ボタンを押した瞬間：即座に通常攻撃を発動し、チャージを開始！
+    if (justPressed && !this.isAttacking && !this.isCharging) {
+      this.executeSlash();
+      this.isCharging = true;
+      this.chargeTime = 0;
+      this.chargeSoundTimer = 0;
+    }
+
+    // 2. ボタンを押し続けている間：チャージカウント
+    if (this.isCharging && isDown) {
+      this.chargeTime += delta;
+      this.chargeSoundTimer += delta;
+
+      if (this.chargeTime >= this.chargeThreshold) {
+        this.chargeGlow.setAlpha(0.6 + 0.3 * Math.sin(Date.now() / 80));
+        if (this.chargeSoundTimer > 180) {
+          audioSynth.playSpinCharge(Math.floor(this.chargeTime / 100));
           this.chargeSoundTimer = 0;
         }
-
-        if (this.isCharging) {
-          this.chargeTime += delta;
-          this.chargeSoundTimer += delta;
-
-          // チャージ完了後、ピロピロと音と光で通知
-          if (this.chargeTime >= this.chargeThreshold) {
-            this.chargeGlow.setAlpha(0.6 + 0.3 * Math.sin(Date.now() / 80));
-            if (this.chargeSoundTimer > 180) {
-              audioSynth.playSpinCharge(Math.floor(this.chargeTime / 100));
-              this.chargeSoundTimer = 0;
-            }
-          }
-        }
       }
-    } else {
-      // キーが離された時
-      if (this.isCharging) {
-        if (this.chargeTime >= this.chargeThreshold) {
-          // 回転斬り（Spin Attack）発動！
-          this.executeSpinAttack();
-        } else {
-          // 通常の斬撃攻撃
-          this.executeSlash();
-        }
-        this.isCharging = false;
-        this.chargeTime = 0;
-        this.chargeGlow.setAlpha(0);
+    }
+
+    // 3. ボタンを離した時：チャージ完了していれば回転斬り発動！
+    if (this.isCharging && !isDown) {
+      if (this.chargeTime >= this.chargeThreshold) {
+        this.executeSpinAttack();
       }
+      this.isCharging = false;
+      this.chargeTime = 0;
+      this.chargeGlow.setAlpha(0);
     }
   }
 
@@ -188,14 +185,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.isAttacking = true;
 
     audioSynth.playSlash();
-
-    // スラッシュエフェクト表示
     this.showSlashEffect();
-
-    // 剣当たり判定（敵・魔法弾打ち返し・草刈り）
     this.checkMeleeHits(false);
 
-    // 体力満タン時、マスターソードならビーム発射
+    // 体力満タン＋マスターソードでビーム
     if (gameState.hasMasterSword && gameState.playerHealth >= gameState.playerMaxHealth) {
       this.fireBeam();
     }
@@ -207,13 +200,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   // 回転斬り（Spin Attack）
   executeSpinAttack() {
-    if (this.isAttacking) return;
     this.isAttacking = true;
     this.isSpinning = true;
 
     audioSynth.playSpinRelease();
 
-    // 全方位スピンリングの表示
     const ring = this.scene.add.sprite(this.x, this.y, 'spin-ring');
     ring.setScale(1.8).setDepth(25);
     this.scene.tweens.add({
@@ -225,14 +216,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       onComplete: () => ring.destroy()
     });
 
-    // プレイヤーが高速回転する演出
     let rot = 0;
     const spinInterval = setInterval(() => {
       rot += 90;
       this.setAngle(rot);
     }, 40);
 
-    // 360度全方位の攻撃判定
     this.checkMeleeHits(true);
 
     this.scene.time.delayedCall(360, () => {
@@ -274,7 +263,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       });
     }
 
-    // 2. 敵の魔法弾打ち返し判定（アグニムの大魔法弾など）
+    // 2. 敵の魔法弾打ち返し判定
     if (this.scene.projectiles) {
       this.scene.projectiles.getChildren().forEach(proj => {
         if (!proj || !proj.active || proj.owner !== 'enemy') return;
@@ -283,7 +272,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
           Phaser.Geom.Intersects.RectangleToRectangle(hitBox, proj.getBounds());
 
         if (inRange && proj.canReflect) {
-          // アグニムへ向かって打ち返す
           const agahnim = this.scene.enemies.getChildren().find(e => e.type === 'agahnim' && e.active);
           const tx = agahnim ? agahnim.x : this.x;
           const ty = agahnim ? agahnim.y : this.y - 200;
@@ -303,50 +291,51 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
         if (inRange) {
           let baseDamage = gameState.hasMasterSword ? 3 : 1;
-          if (isSpin) baseDamage *= 2; // 回転斬りは威力2倍！
+          if (isSpin) baseDamage *= 2;
 
-          // ボス特性
+          let isDead = false;
+
           if (enemy.type === 'agahnim') {
-            enemy.takeDamage(0, 0, 0, false); // バリアで弾かれる
+            enemy.takeDamage(0, 0, 0, false);
           } else if (enemy.type === 'ganon') {
             if (!gameState.hasMasterSword) {
               this.scene.showBanner("マスターソードでないと効かない！");
             } else {
               const kbAngle = Phaser.Math.Angle.Between(this.x, this.y, enemy.x, enemy.y);
-              enemy.takeDamage(baseDamage, Math.cos(kbAngle) * 200, Math.sin(kbAngle) * 200);
+              isDead = enemy.takeDamage(baseDamage, Math.cos(kbAngle) * 200, Math.sin(kbAngle) * 200);
             }
           } else if (enemy.type === 'moldorm') {
-            // デグテールは尻尾（背後）のみ有効
             const angleToPlayer = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.x, this.y);
             const moveAngle = Math.atan2(enemy.body.velocity.y, enemy.body.velocity.x);
             const diff = Phaser.Math.Angle.Wrap(angleToPlayer - moveAngle);
-            if (Math.abs(diff) > Math.PI * 0.5) {
+            if (Math.abs(diff) > Math.PI * 0.45) {
               this.scene.showBanner("弱点にヒット！");
-              enemy.takeDamage(baseDamage);
+              isDead = enemy.takeDamage(baseDamage);
             } else {
               this.scene.showBanner("頭部は硬い！後ろから狙え！");
               audioSynth.playShieldBlock();
             }
           } else {
-            // 通常敵
             const kbAngle = Phaser.Math.Angle.Between(this.x, this.y, enemy.x, enemy.y);
-            enemy.takeDamage(baseDamage, Math.cos(kbAngle) * 180, Math.sin(kbAngle) * 180);
+            isDead = enemy.takeDamage(baseDamage, Math.cos(kbAngle) * 180, Math.sin(kbAngle) * 180);
+          }
+
+          // ボス撃破時の処理を確実に発火
+          if (isDead && this.scene.onEnemyDefeated) {
+            this.scene.onEnemyDefeated(enemy);
           }
         }
       });
     }
   }
 
-  // 草をサクッと刈る
   cutBush(bush) {
     audioSynth.playGrassCut();
 
-    // 葉っぱが飛び散る演出
     if (this.scene.createLeafBurst) {
       this.scene.createLeafBurst(bush.x, bush.y);
     }
 
-    // 確率でハートや矢が出現
     const roll = Math.random();
     if (roll < 0.25) {
       new DropItem(this.scene, bush.x, bush.y, 'drop-heart', 'heart');
@@ -359,9 +348,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     bush.destroy();
   }
 
-  // 盾（Shield）オートガード判定
   canBlockProjectile(proj) {
-    // プレイヤーの正面方向から飛んできたかを判定
     const angleToProj = Phaser.Math.Angle.Between(this.x, this.y, proj.x, proj.y);
     let facingAngle = 0;
     if (this.direction === 'right') facingAngle = 0;
@@ -370,11 +357,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     else if (this.direction === 'up') facingAngle = -Math.PI / 2;
 
     const diff = Phaser.Math.Angle.Wrap(angleToProj - facingAngle);
-    // 正面120度（±60度）以内であれば盾でガード成功
-    return Math.abs(diff) < Math.PI * 0.35;
+    return Math.abs(diff) < Math.PI * 0.4;
   }
 
-  // 剣ビーム発射
   fireBeam() {
     let dx = 0;
     let dy = 0;
@@ -388,7 +373,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     audioSynth.playArrow();
   }
 
-  // 斬撃エフェクト
   showSlashEffect() {
     let sx = this.x;
     let sy = this.y;
@@ -414,20 +398,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
-  // アイテム掲げ演出（神トラの宝箱・重要アイテム取得時）
   holdItem(itemTextureKey, callback) {
     this.isHolding = true;
     this.setTexture('reni-hold');
     this.body.setVelocity(0, 0);
 
-    // 頭上にアイテムを表示
     const itemSprite = this.scene.add.sprite(this.x, this.y - 24, itemTextureKey);
     itemSprite.setScale(1.5).setDepth(50);
 
-    // ファンファーレ吹鳴
     audioSynth.playFanfare();
 
-    // 2秒間掲げてポーズ後、元に戻る
     this.scene.time.delayedCall(2200, () => {
       itemSprite.destroy();
       this.setTexture('reni-walk', 0);
