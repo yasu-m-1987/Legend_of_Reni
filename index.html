@@ -41,7 +41,7 @@
 <body>
   <div id="app-container">
     <!-- 静的デバッグコンソール領域 -->
-    <div id="debug-error-console" style="background-color: #1a1a24; border: 2px solid #3b82f6; color: #fff; padding: 12px; font-family: monospace; font-size: 13px; margin-bottom: 16px; border-radius: 8px; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 9999;">
+    <div id="debug-error-console" style="background-color: #1a1a24; border: 2px solid #3b82f6; color: #fff; padding: 12px; font-family: monospace; font-size: 13px; margin-bottom: 16px; border-radius: 8px; max-height: 140px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 9999;">
       <div style="font-weight: bold; color: #ffd700; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 6px;">[SYSTEM DEBUG CONSOLE]</div>
       <div id="debug-error-text" style="line-height: 1.5;"><div style="color: #4caf50;">[SYSTEM] 起動シーケンス開始...</div></div>
     </div>
@@ -111,7 +111,7 @@
           </div>
           <div class="status-row">
             <span class="label">のこり矢:</span>
-            <span id="arrow-count" class="value item-val">10</span>
+            <span id="arrow-count" class="value item-val">15</span>
           </div>
         </div>
 
@@ -147,9 +147,11 @@
           <h3 class="section-title">そうさほうほう</h3>
           <ul class="control-list">
             <li><span class="key">▲ ▼ ◀ ▶</span> / <span class="key">W A S D</span> : 移動</li>
-            <li><span class="key">Space</span> / <span class="key">J</span> : 選択アイテムを使用</li>
+            <li><span class="key">Space</span> / <span class="key">J</span> : 攻撃 / アイテム使用</li>
+            <li><span class="key">長押し</span> : <b>回転斬り（Spin Attack）</b></li>
+            <li><span class="key">盾（自動）</span> : 正面の敵弾をオートガード</li>
             <li><span class="key">1</span> <span class="key">2</span> <span class="key">3</span> <span class="key">4</span> : そうび切り替え</li>
-            <li><span class="key">Enter</span> : ゲーム開始 / リトライ</li>
+            <li><span class="key">Enter</span> : 決定 / リトライ</li>
           </ul>
         </div>
 
@@ -158,8 +160,8 @@
           <h3 class="section-title">ものがたり</h3>
           <p class="lore-text">
             邪悪な魔術師アグニムにより、ハイラルは闇に包まれようとしていた。
-            その時、テレパシーを受け取ったのは、一匹の勇敢なキジトラ猫「れに」。
-            「れに」は光の世界と闇の世界を往来し、伝説の「ムーンパール」と「マスターソード」を手に入れ、魔王ガノンを討つことができるのか！？
+            その時、テレパシーを受け取ったのは、勇敢なキジトラ猫「れに」。
+            「れに」は光と闇の世界を駆け、伝説の秘宝とマスターソードを手に魔王ガノンを討つ！
           </p>
         </div>
       </aside>
@@ -170,6 +172,7 @@
     </footer>
   </div>
 
-  <script src="game.js" defer></script>
+  <!-- ES Modules によるエントリーポイント -->
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>
