@@ -1,4 +1,5 @@
 import { TILE_SIZE, MAP_COLS, MAP_ROWS, STATES, WORLDS, ITEMS } from '../config/constants.js';
+import { buildAllTextures } from '../config/assets/textures.js';
 import { gameState } from '../core/gameState.js';
 import { audioSynth } from '../core/audioSynth.js';
 import { mapManager } from '../maps/mapManager.js';
@@ -17,6 +18,10 @@ import { Ganon } from '../entities/enemies/Ganon.js';
 export class PlayScene extends Phaser.Scene {
   constructor() {
     super('PlayScene');
+  }
+
+  preload() {
+    buildAllTextures(this);
   }
 
   create() {
