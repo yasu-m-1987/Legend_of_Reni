@@ -1,13 +1,16 @@
 import { WORLDS, ITEMS } from '../config/constants.js';
 
+const SAVE_KEY = 'legend_of_reni_save';
+const SAVE_VERSION = 2;
+
 /**
  * ゲームステート管理クラス (シングルトン)
  * プレイヤーの能力値・所持品・進行フラグを一元管理し、LocalStorageセーブ＆ロードをサポート
  */
 class GameStateManager {
   constructor() {
-    this.reset();
     this.listeners = [];
+    this.reset();
   }
 
   reset() {
@@ -23,21 +26,38 @@ class GameStateManager {
     this.hasMasterSword = false;
     this.hasFireRod = false;
     this.hasBow = false;
-    this.bossDefeated = false;
-    this.finalBossDefeated = false;
+    this.bossDefeated = false;       // アグニム撃破（森の結界解除）
+    this.finalBossDefeated = false;  // ガノン撃破
 
     this.selectedItem = ITEMS.SWORD;
     this.activePortal = null;
     this.openedChests = new Set();
+    this.defeatedBosses = new Set();
+    this.meltedIce = new Set();
+    this.collectedContainers = new Set();
+
+    // マップ生成用シード（セーブすると同じ地形が再現される）
+    this.mapSeed = Math.floor(Math.random() * 1e9);
+
+    // プレイ記録
+    this.playTime = 0;
+    this.deathCount = 0;
   }
 
-  // 状態変更通知リスナー登録
+  // 状態変更通知リスナー登録（解除関数を返す）
   subscribe(callback) {
     this.listeners.push(callback);
+    return () => {
+      this.listeners = this.listeners.filter(cb => cb !== callback);
+    };
   }
 
   notify() {
     this.listeners.forEach(cb => cb(this));
+  }
+
+  get isBunny() {
+    return this.currentWorld === WORLDS.DARK && !this.hasMoonPearl;
   }
 
   // ダメージを受ける
@@ -51,6 +71,16 @@ class GameStateManager {
   heal(amount) {
     this.playerHealth = Math.min(this.playerMaxHealth, this.playerHealth + amount);
     this.notify();
+  }
+
+  // ハートのうつわ（最大ライフ +1 ハート）
+  addHeartContainer(id) {
+    if (id && this.collectedContainers.has(id)) return false;
+    if (id) this.collectedContainers.add(id);
+    this.playerMaxHealth = Math.min(20, this.playerMaxHealth + 2);
+    this.playerHealth = this.playerMaxHealth;
+    this.notify();
+    return true;
   }
 
   // 魔力消費
@@ -87,16 +117,29 @@ class GameStateManager {
 
   // アイテム選択
   selectItem(slot) {
-    if (slot === ITEMS.FIREROD && !this.hasFireRod) return;
-    if (slot === ITEMS.BOW && !this.hasBow) return;
+    if (slot === ITEMS.FIREROD && !this.hasFireRod) return false;
+    if (slot === ITEMS.BOW && !this.hasBow) return false;
     this.selectedItem = slot;
     this.notify();
+    return true;
+  }
+
+  // ---------- セーブ / ロード ----------
+
+  hasSave() {
+    try {
+      return !!localStorage.getItem(SAVE_KEY);
+    } catch (e) {
+      return false;
+    }
   }
 
   // LocalStorageへのセーブ
   save() {
     try {
       const data = {
+        version: SAVE_VERSION,
+        savedAt: Date.now(),
         currentWorld: this.currentWorld,
         playerHealth: this.playerHealth,
         playerMaxHealth: this.playerMaxHealth,
@@ -108,9 +151,17 @@ class GameStateManager {
         hasBow: this.hasBow,
         bossDefeated: this.bossDefeated,
         finalBossDefeated: this.finalBossDefeated,
-        openedChests: Array.from(this.openedChests)
+        selectedItem: this.selectedItem,
+        activePortal: this.activePortal,
+        openedChests: Array.from(this.openedChests),
+        defeatedBosses: Array.from(this.defeatedBosses),
+        meltedIce: Array.from(this.meltedIce),
+        collectedContainers: Array.from(this.collectedContainers),
+        mapSeed: this.mapSeed,
+        playTime: this.playTime,
+        deathCount: this.deathCount
       };
-      localStorage.setItem('legend_of_reni_save', JSON.stringify(data));
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
       return true;
     } catch (e) {
       console.warn('Save failed:', e);
@@ -121,17 +172,28 @@ class GameStateManager {
   // LocalStorageからのロード
   load() {
     try {
-      const json = localStorage.getItem('legend_of_reni_save');
+      const json = localStorage.getItem(SAVE_KEY);
       if (!json) return false;
       const data = JSON.parse(json);
-      Object.assign(this, data);
-      this.openedChests = new Set(data.openedChests || []);
+      if (data.version !== SAVE_VERSION) return false;
+
+      this.reset();
+      const sets = ['openedChests', 'defeatedBosses', 'meltedIce', 'collectedContainers'];
+      Object.keys(data).forEach(k => {
+        if (k === 'version' || k === 'savedAt') return;
+        if (sets.includes(k)) this[k] = new Set(data[k] || []);
+        else this[k] = data[k];
+      });
       this.notify();
       return true;
     } catch (e) {
       console.warn('Load failed:', e);
       return false;
     }
+  }
+
+  deleteSave() {
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* noop */ }
   }
 }
 

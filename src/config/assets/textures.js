@@ -1,4 +1,5 @@
 import { PALETTE } from './palette.js';
+import { buildExtraTextures } from './extraTextures.js';
 
 /**
  * SFC『ゼルダの伝説 神々のトライフォース』水準 16bitピクセルアート集
@@ -1233,4 +1234,7 @@ export function buildAllTextures(scene) {
       texture.add(fIdx, 0, fIdx * frameWidth, 0, frameWidth, frameHeight);
     });
   });
+
+  // HUD・エフェクト用の追加テクスチャ
+  buildExtraTextures(scene);
 }
