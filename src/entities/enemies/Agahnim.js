@@ -22,7 +22,7 @@ export class Agahnim extends Enemy {
 
     // バリアオーラ（青紫の光）
     this.barrierGlow = scene.add.circle(x, y, 22, 0x9b59b6, 0.35);
-    scene.physics.add.existing(this.barrierGlow);
+    scene.tweens.add({ targets: this.barrierGlow, scale: 1.15, alpha: 0.2, duration: 600, yoyo: true, repeat: -1 });
 
     // テレポート＆魔法弾AI
     const teleportTimer = scene.time.addEvent({
@@ -34,14 +34,10 @@ export class Agahnim extends Enemy {
 
         // 指定エリア（城・神殿の祭壇）内をランダムテレポート
         const tc = 17 + Math.floor(Math.random() * 7); // c=17..23
-        const tr = 3 + Math.floor(Math.random() * 3);  // r=3..5
+        const tr = 2 + Math.floor(Math.random() * 2);  // r=2..3（祭壇の上段）
         this.x = tc * TILE_SIZE + 16;
         this.y = tr * TILE_SIZE + 16;
         this.body.setVelocity(0, 0);
-
-        if (this.barrierGlow) {
-          this.barrierGlow.setPosition(this.x, this.y);
-        }
 
         scene.cameras.main.flash(200, 156, 39, 176, true);
 
@@ -74,6 +70,13 @@ export class Agahnim extends Enemy {
     this.timerEvents.push(teleportTimer);
   }
 
+  preUpdate(time, delta) {
+    super.preUpdate(time, delta);
+    if (this.barrierGlow) {
+      this.barrierGlow.setPosition(this.x, this.y).setDepth(this.depth + 0.01);
+    }
+  }
+
   // プレイヤーの直接攻撃に対するバリア判定
   takeDamage(amount, knockbackDx = 0, knockbackDy = 0, isReflected = false) {
     if (!isReflected && this.hasBarrier) {
@@ -90,16 +93,11 @@ export class Agahnim extends Enemy {
     return super.takeDamage(amount, knockbackDx, knockbackDy);
   }
 
-  die() {
-    if (this.barrierGlow) {
-      this.barrierGlow.destroy();
-    }
-    super.die();
-  }
-
   destroy(fromScene) {
     if (this.barrierGlow) {
+      if (this.scene) this.scene.tweens.killTweensOf(this.barrierGlow);
       this.barrierGlow.destroy();
+      this.barrierGlow = null;
     }
     super.destroy(fromScene);
   }

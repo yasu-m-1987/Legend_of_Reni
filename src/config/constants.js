@@ -105,3 +105,16 @@ export const DEPTH = {
   EFFECT: 1000,
   OVERHEAD: 2000
 };
+
+/** ダンジョン南端の出口（タイル座標） */
+export const DUNGEON_DOOR = { c: 20, r: 29 };
+
+/**
+ * 各ダンジョンのボス出現位置と撃破報酬（タイル座標）
+ */
+export const BOSS_ROOMS = {
+  [WORLDS.DESERT]:      { boss: 'lanmola', c: 20, r: 5, reward: { tile: TILES.CHEST_FIREROD, c: 20, r: 5 } },
+  [WORLDS.DARK_TEMPLE]: { boss: 'agahnim', c: 20, r: 2 },
+  [WORLDS.LOST_WOODS]:  { boss: 'moldorm', c: 20, r: 4, reward: { tile: TILES.PEDESTAL, c: 20, r: 3 } },
+  [WORLDS.PYRAMID]:     { boss: 'ganon',   c: 20, r: 4 }
+};

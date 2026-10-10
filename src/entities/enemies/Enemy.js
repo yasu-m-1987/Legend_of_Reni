@@ -1,9 +1,10 @@
 import { audioSynth } from '../../core/audioSynth.js';
+import { DEPTH } from '../../config/constants.js';
 import { DropItem } from '../DropItem.js';
 
 /**
  * 敵キャラクター基底クラス
- * HP管理・被弾・ノックバック・撃破時爆発エフェクト・ドロップ抽選を担当
+ * HP管理・被弾・ノックバック・撃破時爆発エフェクト・ドロップ抽選・足元の影を担当
  */
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, textureKey, config = {}) {
@@ -20,8 +21,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.speed = config.speed || 60;
     this.isBoss = config.isBoss || false;
     this.invulnerable = false;
+    this.timerEvents = [];
+
+    this.shadow = scene.add.image(x, y + 14, 'shadow').setDepth(DEPTH.SHADOW);
+    if (this.isBoss) this.shadow.setScale(1.6, 1.4);
 
     scene.enemies.add(this);
+  }
+
+  preUpdate(time, delta) {
+    super.preUpdate(time, delta);
+    if (this.shadow) {
+      this.shadow.setPosition(this.x, this.y + this.displayHeight / 2 - 2);
+      this.shadow.setVisible(this.visible);
+    }
+    this.setDepth(DEPTH.ENTITY + this.y / 100);
   }
 
   // ダメージ処理
@@ -32,21 +46,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.invulnerable = true;
 
     // 白く点滅
-    this.setTint(0xffffff);
+    this.setTintFill(0xffffff);
 
     // ノックバック
     if (knockbackDx !== 0 || knockbackDy !== 0) {
       this.body.setVelocity(knockbackDx, knockbackDy);
     }
 
-    this.scene.time.delayedCall(160, () => {
+    this.scene.time.delayedCall(this.isBoss ? 260 : 160, () => {
       if (this.active) {
         this.clearTint();
         this.invulnerable = false;
       }
     });
 
-    audioSynth.playHurt();
+    audioSynth.playEnemyHit();
 
     if (this.health <= 0) {
       this.die();
@@ -57,15 +71,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   // 撃破処理
   die() {
-    audioSynth.playEnemyExplode();
-
-    // 煙爆発エフェクト（キラキラパーティクル）
-    if (this.scene.createExplosion) {
-      this.scene.createExplosion(this.x, this.y);
+    const scene = this.scene;
+    if (this.isBoss) {
+      audioSynth.playBossExplode();
+      scene.cameras.main.shake(500, 0.01);
+      if (scene.createBossExplosion) scene.createBossExplosion(this.x, this.y);
+    } else {
+      audioSynth.playEnemyExplode();
+      if (scene.createExplosion) scene.createExplosion(this.x, this.y);
+      this.dropLoot();
     }
-
-    // アイテムドロップ抽選
-    this.dropLoot();
     this.destroy();
   }
 
@@ -83,6 +98,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   destroy(fromScene) {
     if (this.timerEvents) {
       this.timerEvents.forEach(t => t.remove(false));
+      this.timerEvents = [];
+    }
+    if (this.shadow) {
+      this.shadow.destroy();
+      this.shadow = null;
     }
     super.destroy(fromScene);
   }

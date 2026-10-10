@@ -29,6 +29,7 @@ export class Lanmola extends Enemy {
         if (!this.isSubmerged) {
           // 潜行
           this.isSubmerged = true;
+          if (scene.createDust) scene.createDust(this.x, this.y + 10);
           this.setVisible(false);
           this.body.enable = false;
           this.body.setVelocity(0, 0);
@@ -46,7 +47,8 @@ export class Lanmola extends Enemy {
           const pAngle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
           this.body.setVelocity(Math.cos(pAngle) * this.speed, Math.sin(pAngle) * this.speed);
 
-          audioSynth.playHurt();
+          audioSynth.playNoise(0.3, 0.25, true);
+          if (scene.createDust) scene.createDust(this.x, this.y + 10);
 
           // 8方向に岩石弾を飛散
           for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {

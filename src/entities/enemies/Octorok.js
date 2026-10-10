@@ -49,7 +49,7 @@ export class Octorok extends Enemy {
 
         const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
         if (dist < 320) {
-          audioSynth.playArrow();
+          audioSynth.playEnemyShoot();
           const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
           const rockSpeed = 130;
           const rock = new Projectile(

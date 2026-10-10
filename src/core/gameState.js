@@ -134,6 +134,16 @@ class GameStateManager {
     }
   }
 
+  /** 現在の状態を変えずにセーブデータの中身を読む（タイトル画面の表示用） */
+  peekSave() {
+    try {
+      const data = JSON.parse(localStorage.getItem(SAVE_KEY));
+      return data && data.version === SAVE_VERSION ? data : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // LocalStorageへのセーブ
   save() {
     try {

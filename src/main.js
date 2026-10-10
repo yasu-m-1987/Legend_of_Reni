@@ -2,6 +2,10 @@ import { TitleScene } from './scenes/TitleScene.js';
 import { PlayScene } from './scenes/PlayScene.js';
 import { GameOverScene } from './scenes/GameOverScene.js';
 import { ClearScene } from './scenes/ClearScene.js';
+import { HUDScene } from './scenes/HUDScene.js';
+import { PauseScene } from './scenes/PauseScene.js';
+import { GAME_WIDTH, GAME_HEIGHT } from './config/constants.js';
+import { audioSynth } from './core/audioSynth.js';
 
 /**
  * 『れにの伝説 (Legend of Reni)』エントリーポイント
@@ -9,8 +13,8 @@ import { ClearScene } from './scenes/ClearScene.js';
 const config = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: 800,
-  height: 480,
+  width: GAME_WIDTH,
+  height: GAME_HEIGHT,
   pixelArt: true,
   physics: {
     default: 'arcade',
@@ -19,8 +23,14 @@ const config = {
       debug: false
     }
   },
-  scene: [TitleScene, PlayScene, GameOverScene, ClearScene]
+  // 配列の順番が描画順（HUD・ポーズはプレイ画面の上に重ねる）
+  scene: [TitleScene, PlayScene, HUDScene, PauseScene, GameOverScene, ClearScene]
 };
+
+// M キーでいつでもサウンド ON/OFF
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyM' && !e.repeat) audioSynth.toggleMute();
+});
 
 window.addEventListener('DOMContentLoaded', () => {
   try {

@@ -57,32 +57,6 @@
         <div class="screen-bezel">
           <div class="screen-glare"></div>
           <div id="game-container"></div>
-          
-          <!-- Splash / Start Screen overlay inside canvas container if needed -->
-          <div id="start-overlay" class="overlay-screen">
-            <div class="overlay-content">
-              <h2 class="blink">PRESS ENTER TO START</h2>
-              <p class="tabby-intro">キジトラ猫の「れに」を操作して、光と闇の世界を冒険しよう！</p>
-            </div>
-          </div>
-          
-          <!-- Game Over overlay -->
-          <div id="gameover-overlay" class="overlay-screen hidden">
-            <div class="overlay-content error-theme">
-              <h2>GAME OVER</h2>
-              <p>れには力尽きてしまった...</p>
-              <button id="retry-btn" class="retro-btn">もう一度挑戦</button>
-            </div>
-          </div>
-
-          <!-- Game Clear overlay -->
-          <div id="clear-overlay" class="overlay-screen hidden">
-            <div class="overlay-content gold-theme">
-              <h2>GAME CLEAR!</h2>
-              <p>トライフォースの光を取り戻し、世界に平和が戻った！</p>
-              <button id="restart-btn" class="retro-btn">タイトルに戻る</button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -155,8 +129,11 @@
             <li><span class="key">長押し</span> : <b>回転斬り（Spin Attack）</b></li>
             <li><span class="key">盾（自動）</span> : 正面の敵弾をオートガード</li>
             <li><span class="key">1</span> <span class="key">2</span> <span class="key">3</span> <span class="key">4</span> : そうび切り替え</li>
-            <li><span class="key">Enter</span> : 決定 / リトライ</li>
+            <li><span class="key">Esc</span> / <span class="key">P</span> : ポーズ・セーブ</li>
+            <li><span class="key">M</span> : サウンド ON / OFF</li>
+            <li><span class="key">Enter</span> : 決定</li>
           </ul>
+          <button id="mute-btn" class="retro-btn mute-btn" type="button">🔊 サウンド ON</button>
         </div>
 
         <!-- Instructions/Lore Box -->

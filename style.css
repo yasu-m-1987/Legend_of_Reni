@@ -479,3 +479,17 @@ body {
   font-size: 0.75rem;
   margin-top: 2px;
 }
+
+/* --- サウンド切り替えボタン --- */
+.mute-btn {
+  width: 100%;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  margin-top: 12px;
+}
+
+.mute-btn.muted {
+  background: linear-gradient(180deg, #4a5568 0%, #2d3748 100%);
+  color: #e2e8f0;
+  box-shadow: 0 4px 0 #1a202c;
+}

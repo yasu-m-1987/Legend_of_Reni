@@ -1,4 +1,5 @@
 import { audioSynth } from '../core/audioSynth.js';
+import { DEPTH } from '../config/constants.js';
 
 /**
  * 弾・投擲物クラス（魔法弾・矢・ビーム・岩石弾）
@@ -17,20 +18,9 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.owner = owner; // 'player' or 'enemy'
     this.canReflect = (type === 'magic-ball'); // アグニムの魔法弾は剣で打ち返し可能
     this.isReflected = false;
+    this.setDepth(DEPTH.ENTITY + 50);
 
-    // 壁との衝突で消滅
-    scene.physics.add.collider(this, scene.walls, () => this.destroy());
-
-    // 氷ブロックとの衝突（ファイアボールで溶かすギミック）
-    if (scene.iceBlocks) {
-      scene.physics.add.collider(this, scene.iceBlocks, (p, ice) => {
-        if (this.type === 'fireball' && scene.meltIceBlock) {
-          scene.meltIceBlock(ice);
-        }
-        this.destroy();
-      });
-    }
-
+    // 壁・氷ブロックとの衝突は PlayScene でグループ単位に設定
     scene.projectiles.add(this);
     this.body.setVelocity(dx, dy);
   }
